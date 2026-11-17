@@ -1,0 +1,9 @@
+# Exact versions observed in the existing llm_env (Python 3.12.10).
+fastapi==0.162.4
+uvicorn==0.54.0
+torch==2.7.1+cu118
+transformers==5.22.2
+accelerate==1.15.0
+bitsandbytes==0.50.2
+pydantic==2.14.3
+safetensors==0.8.0
