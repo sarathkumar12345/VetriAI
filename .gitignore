@@ -24,3 +24,6 @@ frontend/dist/
 *.before-*
 *.history-backup
 *.backup-*
+*.cors-backup
+
+backend/*.auth-backup

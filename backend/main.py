@@ -1,5 +1,6 @@
-
+import os
 import re
+import secrets
 import traceback
 
 from contextlib import asynccontextmanager
@@ -9,7 +10,8 @@ from typing import Literal
 
 import torch
 
-from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -34,6 +36,32 @@ from backend.memory import (
     delete_conversation,
     rename_conversation,
 )
+
+
+# ==========================================
+# API KEY CONFIGURATION
+# ==========================================
+
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
+VETRIAI_API_KEY = os.getenv("VETRIAI_API_KEY")
+
+
+def verify_api_key(
+    x_vetriai_key: str | None = Header(default=None)
+):
+    if (
+        not VETRIAI_API_KEY
+        or not x_vetriai_key
+        or not secrets.compare_digest(
+            x_vetriai_key,
+            VETRIAI_API_KEY
+        )
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing API key"
+        )
 
 
 # ==========================================
@@ -272,6 +300,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "https://vetriai.pages.dev",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -313,13 +342,13 @@ def health():
 # CHAT HISTORY APIs
 # ==========================================
 
-@app.get("/chats")
+@app.get("/chats", dependencies=[Depends(verify_api_key)])
 def list_chats():
 
     return get_all_conversations()
 
 
-@app.get("/chats/{session_id}")
+@app.get("/chats/{session_id}", dependencies=[Depends(verify_api_key)])
 def get_chat(session_id: str):
 
     messages = get_conversation_messages(session_id)
@@ -337,7 +366,7 @@ def get_chat(session_id: str):
     }
 
 
-@app.put("/chats/{session_id}/rename")
+@app.put("/chats/{session_id}/rename", dependencies=[Depends(verify_api_key)])
 def rename_chat(
     session_id: str,
     request: RenameChatRequest
@@ -371,7 +400,7 @@ def rename_chat(
     }
 
 
-@app.delete("/chats/{session_id}")
+@app.delete("/chats/{session_id}", dependencies=[Depends(verify_api_key)])
 def remove_chat(session_id: str):
 
     delete_conversation(session_id)
@@ -386,13 +415,13 @@ def remove_chat(session_id: str):
 # LONG-TERM MEMORY APIs
 # ==========================================
 
-@app.get("/memories")
+@app.get("/memories", dependencies=[Depends(verify_api_key)])
 def list_memories():
 
     return get_all_memories()
 
 
-@app.get("/memories/{key}")
+@app.get("/memories/{key}", dependencies=[Depends(verify_api_key)])
 def read_memory(key: str):
 
     memory = get_memory(key)
@@ -407,7 +436,7 @@ def read_memory(key: str):
     return memory
 
 
-@app.post("/memories")
+@app.post("/memories", dependencies=[Depends(verify_api_key)])
 def create_or_update_memory(request: MemoryRequest):
 
     key = request.key.strip()
@@ -430,7 +459,7 @@ def create_or_update_memory(request: MemoryRequest):
     }
 
 
-@app.delete("/memories/{key}")
+@app.delete("/memories/{key}", dependencies=[Depends(verify_api_key)])
 def remove_memory(key: str):
 
     success = delete_memory(key)
@@ -453,7 +482,7 @@ def remove_memory(key: str):
 # MAIN CHAT API
 # ==========================================
 
-@app.post("/chat")
+@app.post("/chat", dependencies=[Depends(verify_api_key)])
 def chat(request: ChatRequest):
 
     if model is None or tokenizer is None:
